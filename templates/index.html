@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>XML-TEI Annotator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <h1>XML-TEI Annotator</h1>
+  
+  <h2>Upload an XML file</h2>
+  <form action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data">
+    <input type="file" name="file" accept=".xml">
+    <input type="submit" value="Upload">
+  </form>
+
+  <h2>Uploaded XML Files</h2>
+  <ul>
+    {% for file in upload_files %}
+      <li>
+        {{ file }} - <a href="{{ url_for('annotate', filename=file) }}">Begin tagging</a>
+      </li>
+    {% endfor %}
+  </ul>
+
+  <h2>Annotated XML Files</h2>
+  <ul>
+    {% for file in annotated_files %}
+      <li>
+        {{ file }} - <a href="{{ url_for('resume', filename=file) }}">Resume tagging</a>
+      </li>
+    {% endfor %}
+  </ul>
+
+<p>This is a minimalistic XML-TEI editor for the annotation of lists.</p>
+<p>Timothée Premat, postdoctoral researcher, ArchivU project, Céditec lab. (and associated to MoDyCo lab.), Paris Est Créteil University.</p>
+<p>Delivered under GNU-GPL 3 licence, with no garantee as to the result.</p>
+</body>
+</html>

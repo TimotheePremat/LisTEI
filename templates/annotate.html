@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Annotate {{ filename }}</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif; /* Change this to your desired font */
+    }
+    .container {
+      display: flex;
+      align-items: flex-start;
+    }
+    textarea {
+      width: 750px;
+      height: 500px;
+      font-family: monospace;
+      font-size: 14px;
+    }
+    .buttons {
+      width: 200px;
+      padding-left: 20px;
+      display: flex;
+      flex-direction: column;
+    }
+    .buttons button {
+      margin-bottom: 10px;
+    }
+    .buttons form button {
+      width: 100%;
+    }
+  </style>
+  <script>
+let isEdited = false;
+let undoStack = [];
+let redoStack = [];
+
+document.addEventListener("DOMContentLoaded", function () {
+  const textarea = document.getElementById("annotated_text");
+
+  // Ensure initial value is pushed to undoStack
+  pushToUndoStack(textarea.value, true);
+
+  // Apply newlines before relevant tags
+  textarea.value = insertNewlinesBeforeTags(textarea.value);
+
+  textarea.addEventListener("input", function () {
+    isEdited = true;
+    pushToUndoStack(textarea.value);
+  });
+
+  textarea.addEventListener("keydown", function (event) {
+    if ((event.ctrlKey || event.metaKey) && event.key === 'z') {
+      event.preventDefault();
+      undo();
+    } else if ((event.ctrlKey || event.metaKey) && (event.key === 'y' || (event.shiftKey && event.key === 'z'))) {
+      event.preventDefault();
+      redo();
+    }
+  });
+});
+
+function pushToUndoStack(value, isInitial = false) {
+  if (!isInitial && undoStack.length > 0 && undoStack[undoStack.length - 1] === value) {
+    return; // Avoid pushing duplicate states
+  }
+  
+  undoStack.push(value);
+  if (!isInitial) {
+    redoStack = []; // Clear redo stack on new input
+  }
+}
+
+function undo() {
+  if (undoStack.length > 1) {
+    const textarea = document.getElementById("annotated_text");
+    redoStack.push(undoStack.pop());
+    textarea.value = undoStack[undoStack.length - 1];
+    isEdited = true;
+  }
+}
+
+function redo() {
+  if (redoStack.length > 0) {
+    const textarea = document.getElementById("annotated_text");
+    undoStack.push(redoStack.pop());
+    textarea.value = undoStack[undoStack.length - 1];
+    isEdited = true;
+  }
+}
+
+// Ensure that annotation actions push state to undo stack
+function wrapSelectionWithList(listType) {
+  var textarea = document.getElementById("annotated_text");
+  var start = textarea.selectionStart;
+  var end = textarea.selectionEnd;
+
+  if (start === end) {
+    alert("Please select some text to annotate as a list.");
+    return;
+  }
+
+  pushToUndoStack(textarea.value); // Capture state BEFORE modifying
+
+  var textBefore = textarea.value.substring(0, start);
+  var textAfter = textarea.value.substring(end);
+  var selectedText = textarea.value.substring(start, end);
+  var wrapped = `\n<list type="${listType}">\n  ${selectedText}\n</list>\n`;
+
+  textarea.value = textBefore + wrapped + textAfter;
+  textarea.selectionStart = start;
+  textarea.selectionEnd = start + wrapped.length;
+
+  pushToUndoStack(textarea.value);
+  isEdited = true;
+}
+
+function annotateAsHead() {
+  var textarea = document.getElementById("annotated_text");
+  var start = textarea.selectionStart;
+  var end = textarea.selectionEnd;
+
+  if (start === end) {
+    alert("Please select some text to annotate as a head.");
+    return;
+  }
+
+  pushToUndoStack(textarea.value); // Capture state BEFORE modifying
+
+  var textBefore = textarea.value.substring(0, start);
+  var textAfter = textarea.value.substring(end);
+  textBefore = textBefore.replace(/<item>\s*$/, "");
+  var selectedText = textarea.value.substring(start, end);
+  var wrapped = `<head>${selectedText}</head>\n`;
+
+  textarea.value = textBefore + wrapped + textAfter;
+  textarea.selectionStart = start;
+  textarea.selectionEnd = start + wrapped.length;
+
+  pushToUndoStack(textarea.value);
+  isEdited = true;
+}
+
+function annotateSelectionAsItem() {
+  var textarea = document.getElementById("annotated_text");
+  var start = textarea.selectionStart;
+  var end = textarea.selectionEnd;
+
+  if (start === end) {
+    alert("Please select some text to annotate as one item.");
+    return;
+  }
+
+  pushToUndoStack(textarea.value); // Capture state BEFORE modifying
+
+  var textBefore = textarea.value.substring(0, start);
+  var textAfter = textarea.value.substring(end);
+  var selectedText = textarea.value.substring(start, end);
+  var prepend = `  <item>`;
+  var newlineRegex = /^\s*\n/;
+  var append = newlineRegex.test(textAfter) ? "</item>" : "</item>\n";
+  var wrapped = prepend + selectedText + append;
+
+  textarea.value = textBefore + wrapped + textAfter;
+  textarea.selectionStart = start;
+  textarea.selectionEnd = start + wrapped.length;
+
+  pushToUndoStack(textarea.value);
+  isEdited = true;
+}
+
+
+
+
+    function confirmNavigation(event) {
+      if (isEdited && !confirm("You have unsaved changes. Do you really want to leave?")) {
+        event.preventDefault();
+      }
+    }
+
+    function insertNewlinesBeforeTags(xmlText) {
+      xmlText = xmlText.replace(/\s*(?:\n|\s)*<(p)/g, "\n\n<$1");
+      xmlText = xmlText.replace(/\s*(?:\n|\s)*<(list|head|item)/g, "\n<$1");
+      return xmlText;
+    }
+
+    function wrapSelectionWithList(listType) {
+      var textarea = document.getElementById("annotated_text");
+      var start = textarea.selectionStart;
+      var end = textarea.selectionEnd;
+      
+      if (start === end) {
+        alert("Please select some text to annotate as a list.");
+        return;
+      }
+
+      var textBefore = textarea.value.substring(0, start);
+      var textAfter = textarea.value.substring(end);
+      var selectedText = textarea.value.substring(start, end);
+      var wrapped = `\n<list type="${listType}">\n  ${selectedText}\n</list>\n`;
+
+      textarea.value = textBefore + wrapped + textAfter;
+      textarea.selectionStart = start;
+      textarea.selectionEnd = start + wrapped.length;
+      isEdited = true;
+      undoStack.push(textarea.value);
+      redoStack = []; // Clear redo stack on new input
+    }
+
+    function annotateAsHead() {
+      var textarea = document.getElementById("annotated_text");
+      var start = textarea.selectionStart;
+      var end = textarea.selectionEnd;
+
+      if (start === end) {
+        alert("Please select some text to annotate as a head.");
+        return;
+      }
+
+      var textBefore = textarea.value.substring(0, start);
+      var textAfter = textarea.value.substring(end);
+      textBefore = textBefore.replace(/<item>\s*$/, "");
+      var selectedText = textarea.value.substring(start, end);
+      var wrapped = `<head>${selectedText}</head>\n`;
+
+      textarea.value = textBefore + wrapped + textAfter;
+      textarea.selectionStart = start;
+      textarea.selectionEnd = start + wrapped.length;
+      isEdited = true;
+      undoStack.push(textarea.value);
+      redoStack = []; // Clear redo stack on new input
+    }
+
+    function annotateSelectionAsItem() {
+      var textarea = document.getElementById("annotated_text");
+      var start = textarea.selectionStart;
+      var end = textarea.selectionEnd;
+      
+      if (start === end) {
+        alert("Please select some text to annotate as one item.");
+        return;
+      }
+
+      var textareaValue = textarea.value;
+      var textBefore = textareaValue.substring(0, start);
+      var textAfter = textareaValue.substring(end);
+      var selectedText = textareaValue.substring(start, end);
+      var prepend = `  <item>`;
+      var newlineRegex = /^\s*\n/;
+      var append = newlineRegex.test(textAfter) ? "</item>" : "</item>\n";
+      var wrapped = prepend + selectedText + append;
+
+      textarea.value = textBefore + wrapped + textAfter;
+      textarea.selectionStart = start;
+      textarea.selectionEnd = start + wrapped.length;
+      isEdited = true;
+      undoStack.push(textarea.value);
+      redoStack = []; // Clear redo stack on new input
+    }
+
+    function undo() {
+      if (undoStack.length > 0) {
+        const textarea = document.getElementById("annotated_text");
+        redoStack.push(textarea.value);
+        textarea.value = undoStack.pop();
+      }
+    }
+
+    function redo() {
+      if (redoStack.length > 0) {
+        const textarea = document.getElementById("annotated_text");
+        undoStack.push(textarea.value);
+        textarea.value = redoStack.pop();
+      }
+    }
+
+    function saveBeforeSubmit() {
+    const textarea = document.getElementById("annotated_text");
+    const hiddenInput = document.getElementById("annotated_text_hidden");
+    hiddenInput.value = textarea.value;
+  }
+
+  function removeExtraNewlines() {
+  const textarea = document.getElementById("annotated_text");
+
+  pushToUndoStack(textarea.value); // Save before modification
+
+  // Replace 3+ consecutive newlines with just 2
+  textarea.value = textarea.value.replace(/\n{3,}/g, '\n\n');
+
+  isEdited = true;
+  pushToUndoStack(textarea.value);
+}
+function reduceConsecutiveSpaces() {
+  const textarea = document.getElementById("annotated_text");
+
+  pushToUndoStack(textarea.value); // Save before modification
+
+  // Replace sequences of 2 or more spaces by half their length (rounded up)
+  textarea.value = textarea.value.replace(/ {2,}/g, match => {
+    return ' '.repeat(Math.ceil(match.length / 2));
+  });
+
+  isEdited = true;
+  pushToUndoStack(textarea.value);
+}
+
+
+  </script>
+</head>
+<body>
+  <h1>Annotate {{ filename }}</h1>
+
+  <!-- Back button with warning for unsaved changes -->
+  <a href="{{ url_for('index') }}" onclick="confirmNavigation(event)">
+    <button type="button">Back to Files</button>
+  </a>
+
+  <!-- Container for textarea and buttons -->
+  <div class="container">
+    <form action="{{ url_for('annotate', filename=filename) }}" method="post">
+      <textarea id="annotated_text" name="annotated_text">{{ xml_content }}</textarea>
+      <br>
+      <button type="submit" onclick="saveBeforeSubmit()">Save Annotation</button>
+  </form>
+  
+  
+    <div class="buttons">
+      <p>Types of list</p>
+      <button type="button" onclick="wrapSelectionWithList('inline')">Inline</button>
+      <button type="button" onclick="wrapSelectionWithList('simple')">Simple</button>
+      <button type="button" onclick="wrapSelectionWithList('bulleted')">Bulleted</button>
+      <button type="button" onclick="wrapSelectionWithList('numbered')">Numbered</button>
+      <br>
+      <p>List components</p>
+      <button type="button" onclick="annotateAsHead()">Head</button>
+      <button type="button" onclick="annotateSelectionAsItem()">Item</button>
+      <br>
+      <p>Display properties</p>
+      <button type="button" onclick="removeExtraNewlines()">Clean Extra Newlines</button>
+      <button type="button" onclick="reduceConsecutiveSpaces()">Halve Spaces</button>
+      <br>
+      <!-- Save button moved here -->
+      <!-- <form action="{{ url_for('annotate', filename=filename) }}" method="post">
+        <input type="hidden" id="annotated_text_hidden" name="annotated_text">
+        <button type="submit" onclick="saveBeforeSubmit()">Save Annotation</button>
+      </form> -->
+    </div>
+  </div>
+  
+
+  <br>
+
+  <p>This is a simpler XML-TEI editor for list annotations.</p>
+  <p>How to use:</p>
+  <ol>
+    <li>Select a list in the text</li>
+      <ul>
+        <li>If your list has a heading, select it within the list.</li>
+      </ul>
+    <li>Click on the button corresponding to the type of list</li>
+    <li>Then select each item and click on <code>Annotate as item</code></li>
+      <ul>
+        <li>If your list has a heading, select the heading and click on <code>Annotate as head</code></li>
+      </ul>
+  </ol>
+
+  <p>Annotated documents are saved in <code>./annotated</code>.
+    Be sure to reload the annotated version for resuming annotation; annotating a former version would result in deleting the last annotations.</p>
+
+  <p><em>Note:</em> Undo (crtl/cmd + Z) and Redo actions should work, but sometimes several key strokes are needed (the script has counted more actions than you could think).</p>
+
+  <p><em>Note:</em> Some behaviour of <code><\item></code> are automated,
+  but read the result to be sure!</p>
+
+  <p><em>Note:</em> This slightly changes the XML presentation (newlines insertion before paragraphs, etc.).</p>
+</body>
+</html>
